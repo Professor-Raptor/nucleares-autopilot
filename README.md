@@ -3,8 +3,11 @@ A Python script that automates plant control in the Steam game Nucleares via the
 
 
 ## Install 
-To download the executable version, [click here](). Know that the config is in the code, so you will be stuck with the defaults if you pick this.  
-To download the actual script, you can [click here](). For this option, you of course will need Python and:  
+- [nucleares.exe](https://github.com/Professor-Raptor/nucleares-autopilot/releases/download/v0.1.0/nucleares.exe)  -- Windows standalone binary  
+- [nucleares.py](https://github.com/Professor-Raptor/nucleares-autopilot/releases/download/v0.1.0/nucleares.py)  -- Python script file (requires dependencies)
+
+If you know nothing about Python and want to just download and run, try the executable. Know that you will not be able to configure it, although you shouldn't need to anyways.  
+The python file is just a copy from the repo. The version in the main branch may have updates so consider just grabbing it from there. You will need these:  
 ```
 python -m pip install prompt_toolkit  
 python -m pip install requests  
