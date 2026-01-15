@@ -34,7 +34,7 @@ def get_var(name: str) -> str:
     # return requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
     response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
     if response == 'null':
-        response = '10000'
+        response = '0'
     return response
 
 def post_var(name: str, val):
@@ -350,3 +350,4 @@ app = Application(layout=layout, style=style, full_screen=True)
 
 threading.Thread(target=control_loop, daemon=True).start()
 app.run()
+
