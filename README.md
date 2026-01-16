@@ -23,14 +23,14 @@ I’ve not even tried using this with chemicals, so for all I know, it may not w
 The following commands are available:  
 - ON - enable master control  
 - OFF - disable master control  
-- CORE <"on" or "off"> - enables/disables control specifically for the CORE system (rods)  
-- EGEN <"on" or "off"> - enables/disables control  specifically for the EGEN system (bypass valves)  
-- SGEN <"on" or "off"> - enables/disables control  specifically for the SGEN system (2nd loop pumps)  
-- TEMP <value> - set the core temperature target (minimum)  
-- SURPLUS <value> - (MW) set how much power to generate above demand (for bypass control)  
-- BYPASS <loop ID> <"on" or "off"> - enables/disables control of each loop’s bypass valve (1, 2, or 3)  
-- VOLUME <value> - set target coolant volume for steam generators (for pump control)  
-- PUMP <loop ID> <"on" or "off"> - enables/disables control of each loop’s 2nd pump (1, 2, or 3)  
+- CORE \<on/off\> - enables/disables control specifically for the CORE system (rods)  
+- EGEN \<on/off\> - enables/disables control  specifically for the EGEN system (bypass valves)  
+- SGEN \<on/off\> - enables/disables control  specifically for the SGEN system (2nd loop pumps)  
+- TEMP \<value\> - set the core temperature target (minimum)  
+- SURPLUS \<value\> - (MW) set how much power to generate above demand (for bypass control)  
+- BYPASS \<loop #\> \<on/off\> - enables/disables control of each loop’s bypass valve (1, 2, or 3)  
+- VOLUME \<value\> - (liters) set target coolant volume for steam generators (for pump control)  
+- PUMP \<loop #\> \<on/off\> - enables/disables control of each loop’s 2nd pump (1, 2, or 3)  
 - EXIT - exit the script  
 - HELP - display commands  
 
@@ -39,4 +39,4 @@ In the UI, each header will be colored cyan or green to indicate if control is e
 If you do not have all three loops installed, YOU MUST FIRST DISABLE PUMPS THAT ARE NOT INSTALLED (e.g: “pump 1 off”).  
 By default, the master control is off. Core control was only designed to hold the temperature, so first get the core stable at your desired temperature. Then set the temperature to just below this temperature (e.g: “temp 320”). Then you can finally enable control (e.g. “on” and/or “core on”). 
 
-![TUI Image](https://private-user-images.githubusercontent.com/194707211/535980641-ee70eb78-3a85-4ff9-8dab-e8fdccc6215e.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njg0NDYyNjksIm5iZiI6MTc2ODQ0NTk2OSwicGF0aCI6Ii8xOTQ3MDcyMTEvNTM1OTgwNjQxLWVlNzBlYjc4LTNhODUtNGZmOS04ZGFiLWU4ZmRjY2M2MjE1ZS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwMTE1JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDExNVQwMjU5MjlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT03YzJhOGM3ZGY4MjYxMTFmMTA5MTU3ODE1NzI4NWI4MjQ5MjFhODVjMzgzODVhNWU2ZTkwZDk0OTFmNzQ2MDhkJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.HYryTUmnqc5lU1U2soK61rQYeD7OpEOY5mKMIdEkR1k)
+![TUI Image](https://github.com/user-attachments/assets/ee70eb78-3a85-4ff9-8dab-e8fdccc6215e)
