@@ -31,11 +31,13 @@ PUMP_MIN, PUMP_MAX = 0.0, 100.0
 # ==========================
 
 def get_var(name: str) -> str:
-    # return requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
-    response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
-    if response == 'null':
-        response = '0'
+    response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).json()
+    if response == None:
+        response = 0.0
     return response
+
+def get_alarms():
+    return requests.get(f'{SERVER_DOMAIN}/?variable=ALARMS_ACTIVE', timeout=1).text
 
 def post_var(name: str, val):
     requests.post(f'{SERVER_DOMAIN}/?variable={name}&value={val}', timeout=1)
@@ -216,21 +218,21 @@ def control_tick():
 # ==========================
 
 def update_telemetry():
-    telemetry['time'] = float(get_var('TIME_STAMP'))
-    telemetry['core_temp'] = float(get_var('CORE_TEMP'))
-    telemetry['rods_pos'] = float(get_var('RODS_POS_ACTUAL'))
+    telemetry['time'] = get_var('TIME_STAMP')
+    telemetry['core_temp'] = get_var('CORE_TEMP')
+    telemetry['rods_pos'] = get_var('RODS_POS_ACTUAL')
 
-    telemetry['power_demand_mw'] = float(get_var('POWER_DEMAND_MW'))
-    gens = [float(get_var(f'GENERATOR_{i}_KW')) for i in range(3)]
+    telemetry['power_demand_mw'] = get_var('POWER_DEMAND_MW')
+    gens = [get_var(f'GENERATOR_{i}_KW') for i in range(3)]
     telemetry['power_output_mw'] = sum(gens) / 1000.0
 
-    telemetry['bypass'] = [float(get_var(f'STEAM_TURBINE_{i}_BYPASS_ACTUAL')) for i in range(3)]
-    telemetry['sg_vol'] = [float(get_var(f'COOLANT_SEC_{i}_LIQUID_VOLUME')) for i in range(3)]
-    telemetry['sg_in'] = [float(get_var(f'STEAM_GEN_{i}_INLET')) for i in range(3)]
-    telemetry['sg_out'] = [float(get_var(f'STEAM_GEN_{i}_OUTLET')) for i in range(3)]
-    telemetry['pump'] = [float(get_var(f'COOLANT_SEC_CIRCULATION_PUMP_{i}_SPEED')) for i in range(3)]
+    telemetry['bypass'] = [get_var(f'STEAM_TURBINE_{i}_BYPASS_ACTUAL') for i in range(3)]
+    telemetry['sg_vol'] = [get_var(f'COOLANT_SEC_{i}_LIQUID_VOLUME') for i in range(3)]
+    telemetry['sg_in'] = [get_var(f'STEAM_GEN_{i}_INLET') for i in range(3)]
+    telemetry['sg_out'] = [get_var(f'STEAM_GEN_{i}_OUTLET') for i in range(3)]
+    telemetry['pump'] = [get_var(f'COOLANT_SEC_CIRCULATION_PUMP_{i}_SPEED') for i in range(3)]
 
-    alarms = get_var('ALARMS_ACTIVE')
+    alarms = get_alarms()
     telemetry['alarms'] = [a.strip() for a in alarms.split(',') if a.strip()][:10]
 
     core_temp_hist.append((telemetry['time'], telemetry['core_temp']))
@@ -350,4 +352,3 @@ app = Application(layout=layout, style=style, full_screen=True)
 
 threading.Thread(target=control_loop, daemon=True).start()
 app.run()
-
