@@ -31,13 +31,12 @@ PUMP_MIN, PUMP_MAX = 0.0, 100.0
 # ==========================
 
 def get_var(name: str) -> str:
-    response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).json()
-    if response == None:
-        response = 0.0
+    # return requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
+    response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
+    if response == 'null':
+        response = '0'
+    response = response.replace(',', '.')
     return response
-
-def get_alarms():
-    return requests.get(f'{SERVER_DOMAIN}/?variable=ALARMS_ACTIVE', timeout=1).text
 
 def post_var(name: str, val):
     requests.post(f'{SERVER_DOMAIN}/?variable={name}&value={val}', timeout=1)
@@ -62,7 +61,7 @@ pump_enabled = [True, True, True]
 
 min_core_temp = 310.0
 target_surplus = 2.0
-target_vol = 33000.0
+target_vol = 30000.0
 
 core_temp_hist = deque(maxlen=600)
 
@@ -176,63 +175,74 @@ def control_tick():
             if last is not None and time_min - last < 1.0:
                 continue
 
-            vol = telemetry['sg_vol'][i]
-            inlet = telemetry['sg_in'][i]
-            outlet = telemetry['sg_out'][i]
-            pump = telemetry['pump'][i]
+            vol     = telemetry['sg_vol'][i]
+            inlet   = telemetry['sg_in'][i]
+            outlet  = telemetry['sg_out'][i]
+            pump    = telemetry['pump'][i]
 
             if outlet == 0:
                 continue
 
-            ratio = inlet / outlet
-            diff = vol - target_vol
-            ad = abs(diff)
+            ratio = inlet / outlet - 1
+            diff  = vol - target_vol
+            ad    = abs(diff)
 
-            step = 0
-            lo1, hi1 = None, None
-            lo2, hi2 = None, None
-
+            # --- define acceptable ratio band ---
             if ad <= 1000:
-                lo1, hi1 = 0.999, 1.001
-                lo2, hi2 = 0.999, 1.001
+                lo, hi = 0.00, 0.02
             elif ad <= 2000:
-                step = 1
-                lo1, hi1 = 0.99, 1.01
-                lo2, hi2 = 0.99, 1.01
-            elif ad < 5000:
-                step = 1
-                lo1, hi1 = 1.04, 1.07
-                lo2, hi2 = 0.93, 0.96
+                lo, hi = 0.02, 0.06
+            elif ad <= 5000:
+                lo, hi = 0.26, 0.30
             else:
-                step = 2
-                lo1, hi1 = 1.07, 1.11
-                lo2, hi2 = 0.96, 0.89
+                lo, hi = 0.54, 0.60
 
-            if step and not (lo1 <= ratio <= hi1) or not (lo2 <= ratio <= hi2):
-                direction = 1 if diff < 0 else -1
-                new = pump + direction * step
-                order_pump(i, clamp(new, PUMP_MIN, PUMP_MAX))
+            # flip band based on volume error
+            if diff < 0:          # volume under target > expect positive ratio
+                band_lo, band_hi = lo, hi
+            elif diff > 0:        # volume over target > expect negative ratio
+                band_lo, band_hi = -hi, -lo
+            else:
+                continue
+
+            # --- inside acceptable band: do nothing ---
+            if band_lo <= ratio <= band_hi:
+                continue
+
+            # --- determine correction ---
+            # move ratio toward nearest band edge
+            target_ratio = band_lo if ratio < band_lo else band_hi
+
+            distance = abs(ratio - target_ratio)
+            step = 1 if distance < 0.1 else 2
+
+            direction = 1 if ratio < target_ratio else -1
+
+            new = pump + direction * step
+            order_pump(i, clamp(new, PUMP_MIN, PUMP_MAX))
+
+
 
 # ==========================
 # TELEMETRY UPDATE
 # ==========================
 
 def update_telemetry():
-    telemetry['time'] = get_var('TIME_STAMP')
-    telemetry['core_temp'] = get_var('CORE_TEMP')
-    telemetry['rods_pos'] = get_var('RODS_POS_ACTUAL')
+    telemetry['time'] = float(get_var('TIME_STAMP'))
+    telemetry['core_temp'] = float(get_var('CORE_TEMP'))
+    telemetry['rods_pos'] = float(get_var('RODS_POS_ACTUAL'))
 
-    telemetry['power_demand_mw'] = get_var('POWER_DEMAND_MW')
-    gens = [get_var(f'GENERATOR_{i}_KW') for i in range(3)]
+    telemetry['power_demand_mw'] = float(get_var('POWER_DEMAND_MW'))
+    gens = [float(get_var(f'GENERATOR_{i}_KW')) for i in range(3)]
     telemetry['power_output_mw'] = sum(gens) / 1000.0
 
-    telemetry['bypass'] = [get_var(f'STEAM_TURBINE_{i}_BYPASS_ACTUAL') for i in range(3)]
-    telemetry['sg_vol'] = [get_var(f'COOLANT_SEC_{i}_LIQUID_VOLUME') for i in range(3)]
-    telemetry['sg_in'] = [get_var(f'STEAM_GEN_{i}_INLET') for i in range(3)]
-    telemetry['sg_out'] = [get_var(f'STEAM_GEN_{i}_OUTLET') for i in range(3)]
-    telemetry['pump'] = [get_var(f'COOLANT_SEC_CIRCULATION_PUMP_{i}_SPEED') for i in range(3)]
+    telemetry['bypass'] = [float(get_var(f'STEAM_TURBINE_{i}_BYPASS_ACTUAL')) for i in range(3)]
+    telemetry['sg_vol'] = [float(get_var(f'COOLANT_SEC_{i}_LIQUID_VOLUME')) for i in range(3)]
+    telemetry['sg_in'] = [float(get_var(f'STEAM_GEN_{i}_INLET')) for i in range(3)]
+    telemetry['sg_out'] = [float(get_var(f'STEAM_GEN_{i}_OUTLET')) for i in range(3)]
+    telemetry['pump'] = [float(get_var(f'COOLANT_SEC_CIRCULATION_PUMP_{i}_SPEED')) for i in range(3)]
 
-    alarms = get_alarms()
+    alarms = get_var('ALARMS_ACTIVE')
     telemetry['alarms'] = [a.strip() for a in alarms.split(',') if a.strip()][:10]
 
     core_temp_hist.append((telemetry['time'], telemetry['core_temp']))
