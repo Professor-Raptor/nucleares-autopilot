@@ -31,7 +31,7 @@ PUMP_MIN, PUMP_MAX = 0.0, 100.0
 # ==========================
 
 def get_var(name: str) -> str:
-    # return requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
+    # text is used instead of json because of regional differences
     response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
     if response == 'null':
         response = '0'
@@ -72,7 +72,6 @@ last_sgen_adjust = [None, None, None]
 core_temp_hold_active = False
 error_line: Optional[str] = None
 
-# ---- SAFE DEFAULT TELEMETRY (CRITICAL FIX) ----
 telemetry = {
     'time': 0.0,
     'core_temp': 0.0,
@@ -132,7 +131,7 @@ def control_tick():
                     order_rods_pos(clamp(new, ROD_MIN, ROD_MAX))
                     last_core_adjust = time_min
 
-                elif cur > min_core_temp + 5 and cur > prev:
+                elif cur > min_core_temp + 6 and cur > prev:
                     new = rods + 0.1
                     order_rods_pos(clamp(new, ROD_MIN, ROD_MAX))
                     core_temp_hold_active = True
@@ -175,53 +174,51 @@ def control_tick():
             if last is not None and time_min - last < 1.0:
                 continue
 
-            vol     = telemetry['sg_vol'][i]
-            inlet   = telemetry['sg_in'][i]
-            outlet  = telemetry['sg_out'][i]
-            pump    = telemetry['pump'][i]
+            vol = telemetry['sg_vol'][i]
+            inlet = telemetry['sg_in'][i]
+            outlet = telemetry['sg_out'][i]
+            pump = telemetry['pump'][i]
 
             if outlet == 0:
                 continue
 
             ratio = inlet / outlet - 1
-            diff  = vol - target_vol
-            ad    = abs(diff)
+            diff = vol - target_vol
+            ad = abs(diff)
 
-            # --- define acceptable ratio band ---
+            # define acceptable ratio band
             if ad <= 1000:
-                lo, hi = 0.00, 0.02
+                lo, hi = -0.01, 0.01
             elif ad <= 2000:
                 lo, hi = 0.02, 0.06
             elif ad <= 5000:
-                lo, hi = 0.26, 0.30
+                lo, hi = 0.12, 0.16
             else:
-                lo, hi = 0.54, 0.60
+                lo, hi = 0.28, 0.32
 
             # flip band based on volume error
-            if diff < 0:          # volume under target > expect positive ratio
+            if ad <= 1000:
+                band_lo, band_hi = lo, hi
+            elif diff < 0:        # volume under target > expect positive ratio
                 band_lo, band_hi = lo, hi
             elif diff > 0:        # volume over target > expect negative ratio
                 band_lo, band_hi = -hi, -lo
             else:
                 continue
 
-            # --- inside acceptable band: do nothing ---
             if band_lo <= ratio <= band_hi:
                 continue
 
-            # --- determine correction ---
-            # move ratio toward nearest band edge
             target_ratio = band_lo if ratio < band_lo else band_hi
 
             distance = abs(ratio - target_ratio)
-            step = 1 if distance < 0.1 else 2
+            step = 1 if distance < 0.1 else 4
 
             direction = 1 if ratio < target_ratio else -1
 
             new = pump + direction * step
             order_pump(i, clamp(new, PUMP_MIN, PUMP_MAX))
-
-
+            last_sgen_adjust[i] = time_min
 
 # ==========================
 # TELEMETRY UPDATE
