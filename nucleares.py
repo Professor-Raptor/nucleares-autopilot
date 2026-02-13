@@ -31,10 +31,11 @@ PUMP_MIN, PUMP_MAX = 0.0, 100.0
 # ==========================
 
 def get_var(name: str) -> str:
-    # return requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
+    # text is used instead of json because of regional differences
     response = requests.get(f'{SERVER_DOMAIN}/?variable={name}', timeout=1).text
     if response == 'null':
         response = '0'
+    response = response.replace(',', '.')
     return response
 
 def post_var(name: str, val):
@@ -60,7 +61,7 @@ pump_enabled = [True, True, True]
 
 min_core_temp = 310.0
 target_surplus = 2.0
-target_vol = 33000.0
+target_vol = 30000.0
 
 core_temp_hist = deque(maxlen=600)
 
@@ -71,7 +72,6 @@ last_sgen_adjust = [None, None, None]
 core_temp_hold_active = False
 error_line: Optional[str] = None
 
-# ---- SAFE DEFAULT TELEMETRY (CRITICAL FIX) ----
 telemetry = {
     'time': 0.0,
     'core_temp': 0.0,
@@ -131,7 +131,7 @@ def control_tick():
                     order_rods_pos(clamp(new, ROD_MIN, ROD_MAX))
                     last_core_adjust = time_min
 
-                elif cur > min_core_temp + 5 and cur > prev:
+                elif cur > min_core_temp + 6 and cur > prev:
                     new = rods + 0.1
                     order_rods_pos(clamp(new, ROD_MIN, ROD_MAX))
                     core_temp_hold_active = True
@@ -182,34 +182,43 @@ def control_tick():
             if outlet == 0:
                 continue
 
-            ratio = inlet / outlet
+            ratio = inlet / outlet - 1
             diff = vol - target_vol
             ad = abs(diff)
 
-            step = 0
-            lo1, hi1 = None, None
-            lo2, hi2 = None, None
-
+            # define acceptable ratio band
             if ad <= 1000:
-                lo1, hi1 = 0.999, 1.001
-                lo2, hi2 = 0.999, 1.001
+                lo, hi = -0.01, 0.01
             elif ad <= 2000:
-                step = 1
-                lo1, hi1 = 0.99, 1.01
-                lo2, hi2 = 0.99, 1.01
-            elif ad < 5000:
-                step = 1
-                lo1, hi1 = 1.04, 1.07
-                lo2, hi2 = 0.93, 0.96
+                lo, hi = 0.02, 0.06
+            elif ad <= 5000:
+                lo, hi = 0.12, 0.16
             else:
-                step = 2
-                lo1, hi1 = 1.07, 1.11
-                lo2, hi2 = 0.96, 0.89
+                lo, hi = 0.28, 0.32
 
-            if step and not (lo1 <= ratio <= hi1) or not (lo2 <= ratio <= hi2):
-                direction = 1 if diff < 0 else -1
-                new = pump + direction * step
-                order_pump(i, clamp(new, PUMP_MIN, PUMP_MAX))
+            # flip band based on volume error
+            if ad <= 1000:
+                band_lo, band_hi = lo, hi
+            elif diff < 0:        # volume under target > expect positive ratio
+                band_lo, band_hi = lo, hi
+            elif diff > 0:        # volume over target > expect negative ratio
+                band_lo, band_hi = -hi, -lo
+            else:
+                continue
+
+            if band_lo <= ratio <= band_hi:
+                continue
+
+            target_ratio = band_lo if ratio < band_lo else band_hi
+
+            distance = abs(ratio - target_ratio)
+            step = 1 if distance < 0.1 else 4
+
+            direction = 1 if ratio < target_ratio else -1
+
+            new = pump + direction * step
+            order_pump(i, clamp(new, PUMP_MIN, PUMP_MAX))
+            last_sgen_adjust[i] = time_min
 
 # ==========================
 # TELEMETRY UPDATE
@@ -350,4 +359,3 @@ app = Application(layout=layout, style=style, full_screen=True)
 
 threading.Thread(target=control_loop, daemon=True).start()
 app.run()
-
