@@ -153,9 +153,9 @@ def control_tick():
                 ad = abs(delta)
 
                 step = 0
-                if 2 < ad < 8: step = 1
-                elif 9 <= ad < 20: step = 3
-                elif ad >= 20: step = 8
+                if 2 <= ad < 8: step = 1
+                elif 8 <= ad < 20: step = 3
+                elif 20 <= ad: step = 8
 
                 if step:
                     direction = 1 if delta > 0 else -1
